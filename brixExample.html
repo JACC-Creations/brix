@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta charset="utf-8">
+  <meta name="description" content="brixExample">
+
+  <title>Brix</title>
+</head>
+
+<style>
+  .static {
+    cursor: not-allowed;
+  }
+
+  .draggable {
+    cursor: move;
+  }
+
+  #container {
+    position: fixed;
+    top: 30pt;
+    left: 0;
+    height: 100%;
+    width: 100%
+  }
+</style>
+
+<body>
+
+  <button id='createBlock'>create block</button>
+  <button id='createInsert'>create insert</button>
+  <button id='addTopClip'>add top clip</button>
+  <button id='addBotClip'>add bot clip</button>
+  <button id='addLeftClip'>add left clip</button>
+  <button id='addRightClip'>add right clip</button>
+  <button id='addSlot'>add slot</button>
+  <button id='addOperator'>add op</button>
+  <button id='logBlock'>log block</button>
+  <br>
+
+  <div id="workArea">
+
+  </div>
+
+  <script type="text/javascript" src="brix.js"></script>
+
+</body>
+
+</html>
