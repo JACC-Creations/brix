@@ -1,52 +1,68 @@
 <!DOCTYPE html>
 
 <html lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="utf-8" />
+    <meta name="description" content="brixExample" />
 
-<head>
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta charset="utf-8">
-  <meta name="description" content="brixExample">
+    <title>Brix</title>
+  </head>
 
-  <title>Brix</title>
-</head>
+  <style>
+    .static {
+      cursor: not-allowed;
+    }
 
-<style>
-  .static {
-    cursor: not-allowed;
-  }
+    .draggable {
+      cursor: move;
+    }
 
-  .draggable {
-    cursor: move;
-  }
+    .pipe {
+      stroke: black;
+      stroke-width: 5;
+    }
 
-  #container {
-    position: fixed;
-    top: 30pt;
-    left: 0;
-    height: 100%;
-    width: 100%
-  }
-</style>
+    .pipeOut {
+      cursor: grab;
+    }
 
-<body>
+    #container {
+      position: fixed;
+      left: 0;
+      height: 100%;
+      width: 100%;
+      margin-left: 200px;
+      padding: 1px 16px;
+    }
 
-  <button id='createBlock'>create block</button>
-  <button id='createInsert'>create insert</button>
-  <button id='addTopClip'>add top clip</button>
-  <button id='addBotClip'>add bot clip</button>
-  <button id='addLeftClip'>add left clip</button>
-  <button id='addRightClip'>add right clip</button>
-  <button id='addSlot'>add slot</button>
-  <button id='addOperator'>add op</button>
-  <button id='logBlock'>log block</button>
-  <br>
+    #sidebar {
+      height: 100%;
+      width: 200px;
+      background-color: dimgrey;
+      position: fixed;
+      z-index: 1;
+      top: 0;
+      left: 0;
+      overflow-x: hidden;
+      padding-top: 20px;
+    }
 
-  <div id="workArea">
+    #sidebar svg {
+      display: list-item;
+      width: 100%;
+    }
 
-  </div>
+    #workArea {
+      margin-left: 200px;
+      padding: 1px 16px;
+      height: 100%;
+    }
+  </style>
 
-  <script type="text/javascript" src="brix.js"></script>
-
-</body>
-
+  <body>
+    <div id="sidebar"></div>
+    <div id="workArea"></div>
+    <script type="text/javascript" src="brix.js"></script>
+  </body>
 </html>

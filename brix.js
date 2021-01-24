@@ -1,10 +1,19 @@
-let insertCounter = 1;
 let counter = 1;
+let palleteCounter = 1;
+let PipeBlockCounter = 1;
+let pipeCounter = 1;
+
 const objects = new Map();
 const rightClipsIn = [];
 const topClipsIn = [];
 const leftClipsOut = [];
 const botClipsOut = [];
+
+const pipesIn = new Map();
+const pipesOut = new Map();
+
+const pallete_ = document.createElement("div");
+pallete_.setAttribute("id", "pallete");
 
 const xmlns_ = "http://www.w3.org/2000/svg";
 const margin_ = 25;
@@ -21,18 +30,18 @@ const blockStartHeight_ = 100;
 const childrenY_ = blockStartHeight_ / 2 - 25;
 
 const TBClipSize_ = 25;
-const LRClipSize_ = 8;
+const LRClipRadius_ = 8;
 const LRClipWidth_ = 14;
 
 const slotStartWidth_ = 40;
 const slotStartHeight_ = 50;
 
-const insertColor_ = "#AF002A";
-
 const opStartHeight_ = 30;
 const opStartWidth_ = 25;
 const opY_ = 10;
 const opColor_ = "#e6e6e6";
+
+const pipeRadius_ = 16;
 
 const topClipMask = document.createElementNS(xmlns_, "rect");
 setAttributes(topClipMask, {
@@ -48,7 +57,7 @@ const rightClipMask = document.createElementNS(xmlns_, "circle");
 setAttributes(rightClipMask, {
   cx: 0,
   cy: 0,
-  r: LRClipSize_,
+  r: LRClipRadius_,
   fill: "black",
 });
 
@@ -106,6 +115,11 @@ class Block {
     this.botClipOut = null;
     this.leftClipOut = null;
     this.rightClipIn = null;
+
+    this.topPipesIn = [];
+    this.botPipeOut = null;
+    this.leftPipesIn = [];
+    this.rightPipeOut = null;
 
     this.topClipMask = null;
     this.rightClipMask = null;
@@ -174,7 +188,7 @@ class Block {
    * @param {Clip|Object} child - The Clip or Object containing a 'svg' property.
    */
   add(child) {
-    if (child instanceof Clip) {
+    if (child instanceof Clip || child instanceof PipeBlock) {
       child.addTo(this);
     } else {
       child.parent = this;
@@ -216,98 +230,12 @@ class Block {
       y += childrenY_ + margin_;
     }
 
-    if (x < blockStartWidth_) x = blockStartWidth_;
-    if (y < blockStartWidth_) y = blockStartHeight_;
-
     this.setSize(x, y);
 
     if (this.parent != null) {
       this.parent.fitInserts();
       this.parent.parent.fitChildren();
     }
-  }
-
-  /**
-   * This function sets the width and height of a block.
-   * @param {number} newWidth - The new width.
-   * @param {number} newHeight - The new height.
-   */
-  setSize(
-    newWidth = parseFloat(this.block.getAttributeNS(null, "width")),
-    newHeight = parseFloat(this.block.getAttributeNS(null, "height"))
-  ) {
-    this.block.setAttributeNS(null, "width", newWidth);
-    this.block.setAttributeNS(null, "height", newHeight);
-
-    if (this.leftClipOut != null && this.leftClipOut !== "disabled")
-      newWidth += LRClipWidth_;
-    if (this.botClipOut != null && this.botClipOut !== "disabled")
-      newHeight += blockTBClipAdjust_;
-
-    const newBox = `0 0 ${newWidth} ${newHeight}`;
-
-    setAttributes(this.svg, {
-      width: newWidth,
-      height: newHeight,
-      viewBox: newBox,
-    });
-
-    // clip positioning
-    if (this.botClipOut != null && this.botClipOut !== "disabled") {
-      this.botClipOut.svg.setAttributeNS(
-        null,
-        "transform",
-        `translate(${blockTBClipX_} ${this.block.getAttributeNS(
-          null,
-          "height"
-        )}) rotate(-45)`
-      );
-    }
-
-    const width = parseFloat(this.block.getAttributeNS(null, "width"));
-    const height = parseFloat(this.block.getAttributeNS(null, "height"));
-
-    if (this.rightClipIn != null) {
-      this.rightClipIn.svg.setAttributeNS(null, "x", width - LRClipWidth_);
-      this.rightClipMask.setAttributeNS(
-        null,
-        "cx",
-        width - blockLRClipAdjust_ + borderSize_ / 2
-      );
-
-      if (height < blockStartHeight_) {
-        this.rightClipIn.svg.setAttributeNS(
-          null,
-          "y",
-          height / 2 - LRClipSize_ - borderSize_ / 2
-        );
-        this.rightClipMask.setAttributeNS(null, "cy", height / 2);
-      } else {
-        this.rightClipIn.svg.setAttributeNS(
-          null,
-          "y",
-          blockStartHeight_ / 2 - LRClipSize_ - borderSize_ / 2
-        );
-        this.rightClipMask.setAttributeNS(null, "cy", blockStartHeight_ / 2);
-      }
-    }
-
-    if (this.leftClipOut != null && this.leftClipOut !== "disabled") {
-      if (height < blockStartHeight_)
-        this.leftClipOut.svg.setAttributeNS(
-          null,
-          "y",
-          height / 2 - LRClipSize_ - borderSize_ / 2
-        );
-      else
-        this.leftClipOut.svg.setAttributeNS(
-          null,
-          "y",
-          blockStartHeight_ / 2 - LRClipSize_ - borderSize_ / 2
-        );
-    }
-
-    setConnected(this);
   }
 
   /**
@@ -349,6 +277,19 @@ class Block {
       selectedObj.rightClipIn.border.setAttributeNS(null, "stroke", color);
     if (selectedObj.topClipIn != null && selectedObj.topClipIn !== "disabled")
       selectedObj.topClipIn.border.setAttributeNS(null, "stroke", color);
+    if (selectedObj.botPipeOut != null && selectedObj.botPipeOut !== "disabled")
+      selectedObj.botPipeOut.border.setAttributeNS(null, "stroke", color);
+    if (
+      selectedObj.rightPipeOut != null &&
+      selectedObj.rightPipeOut !== "disabled"
+    )
+      selectedObj.rightPipeOut.border.setAttributeNS(null, "stroke", color);
+    for (const pipe of this.topPipesIn) {
+      pipe.border.setAttributeNS(null, "stroke", color);
+    }
+    for (const pipe of this.leftPipesIn) {
+      pipe.border.setAttributeNS(null, "stroke", color);
+    }
   }
 
   /**
@@ -387,6 +328,414 @@ class Block {
   setOperation(op) {
     this.operation = op;
   }
+
+  shift(x, y) {
+    this.g.setAttributeNS(null, "transform", `translate(${x} ${y})`);
+    const newWidth = parseFloat(this.svg.getAttributeNS(null, "width")) + x;
+    const newHeight = parseFloat(this.svg.getAttributeNS(null, "height")) + y;
+    const newBox = `0 0 ${newWidth} ${newHeight}`;
+    setAttributes(this.svg, { width: newWidth, viewBox: newBox });
+  }
+
+  /**
+   * This function sets the width and height of a block.
+   * @param {number} newWidth - The new width.
+   * @param {number} newHeight - The new height.
+   */
+  setSize(
+    newWidth = parseFloat(this.block.getAttributeNS(null, "width")),
+    newHeight = parseFloat(this.block.getAttributeNS(null, "height"))
+  ) {
+    this.block.setAttributeNS(null, "width", newWidth);
+    this.block.setAttributeNS(null, "height", newHeight);
+
+    if (this.leftClipOut != null && this.leftClipOut !== "disabled")
+      newWidth += LRClipWidth_;
+    if (this.botClipOut != null && this.botClipOut !== "disabled")
+      newHeight += blockTBClipAdjust_;
+
+    if (this.topPipesIn.length !== 0 && this.topPipesIn !== "disabled")
+      newHeight += pipeRadius_;
+    if (this.botPipeOut != null && this.botPipeOut !== "disabled")
+      newHeight += pipeRadius_;
+    if (this.leftPipesIn.length !== 0 && this.leftPipesIn !== "disabled")
+      newWidth += pipeRadius_;
+    if (this.rightPipeOut != null && this.rightPipeOut !== "disabled")
+      newWidth += pipeRadius_;
+
+    const newBox = `0 0 ${newWidth} ${newHeight}`;
+
+    setAttributes(this.svg, {
+      width: newWidth,
+      height: newHeight,
+      viewBox: newBox,
+    });
+
+    // clip positioning
+    if (this.botClipOut != null && this.botClipOut !== "disabled") {
+      this.botClipOut.svg.setAttributeNS(
+        null,
+        "transform",
+        `translate(${blockTBClipX_} ${this.block.getAttributeNS(
+          null,
+          "height"
+        )}) rotate(-45)`
+      );
+    }
+
+    const width = parseFloat(this.block.getAttributeNS(null, "width"));
+    const height = parseFloat(this.block.getAttributeNS(null, "height"));
+
+    if (this.rightClipIn != null) {
+      this.rightClipIn.svg.setAttributeNS(null, "x", width - LRClipWidth_);
+      this.rightClipMask.setAttributeNS(
+        null,
+        "cx",
+        width - blockLRClipAdjust_ + borderSize_ / 2
+      );
+
+      if (height < blockStartHeight_) {
+        this.rightClipIn.svg.setAttributeNS(
+          null,
+          "y",
+          height / 2 - LRClipRadius_ - borderSize_ / 2
+        );
+        this.rightClipMask.setAttributeNS(null, "cy", height / 2);
+      } else {
+        this.rightClipIn.svg.setAttributeNS(
+          null,
+          "y",
+          blockStartHeight_ / 2 - LRClipRadius_ - borderSize_ / 2
+        );
+        this.rightClipMask.setAttributeNS(null, "cy", blockStartHeight_ / 2);
+      }
+    }
+
+    if (this.leftClipOut != null && this.leftClipOut !== "disabled") {
+      if (height < blockStartHeight_)
+        this.leftClipOut.svg.setAttributeNS(
+          null,
+          "y",
+          height / 2 - LRClipRadius_ - borderSize_ / 2
+        );
+      else
+        this.leftClipOut.svg.setAttributeNS(
+          null,
+          "y",
+          blockStartHeight_ / 2 - LRClipRadius_ - borderSize_ / 2
+        );
+    }
+
+    setConnected(this);
+  }
+
+  setPipes() {
+    for (const pipe of this.topPipesIn) pipe.setPipes();
+    for (const pipe of this.leftPipesIn) pipe.setPipes();
+    if (this.botPipeOut != null) this.botPipeOut.setPipes();
+    if (this.rightPipeOut != null) this.rightPipeOut.setPipes();
+  }
+}
+
+class Pipe {
+  constructor(id = pipeCounter) {
+    this.id = `pipe${id}`;
+    this.out = null;
+    this.in = null;
+    this.line = document.createElementNS(xmlns_, "line");
+    setAttributes(this.line, {
+      x1: 0,
+      y1: 0,
+      x2: 0,
+      y2: 0,
+      class: "pipe",
+      id: this.id,
+    });
+
+    this.line.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      for (let i = 0; i < this.in.pipes.length; i++)
+        if (this === this.in.pipes[i]) this.in.pipes.splice(i, 1);
+      for (let i = 0; i < this.out.pipes.length; i++)
+        if (this === this.out.pipes[i]) this.out.pipes.splice(i, 1);
+      this.line.remove();
+    });
+
+    pipeCounter++;
+  }
+}
+
+/** Class representing a connection 'hub' that pipes can be dragged from and connected to other hubs */
+class PipeBlock {
+  constructor(id = PipeBlockCounter) {
+    this.parent = null;
+    this.id = `pipeBlock${id}`;
+    this.pipes = [];
+    PipeBlockCounter++;
+
+    this.svg = document.createElementNS(xmlns_, "svg");
+    setAttributes(this.svg, {
+      id: this.id,
+      x: 0,
+      y: 0,
+      width: pipeRadius_ * 2 + borderSize_,
+      height: pipeRadius_ * 2 + borderSize_,
+      viewBox: `0 0 ${pipeRadius_ * 2 + borderSize_} ${
+        pipeRadius_ * 2 + borderSize_
+      }`,
+    });
+
+    this.clip = document.createElementNS(xmlns_, "circle");
+    setAttributes(this.clip, {
+      cx: pipeRadius_,
+      cy: pipeRadius_,
+      r: pipeRadius_,
+      fill: blockColor_,
+      opacity: "100%",
+    });
+
+    this.svg.appendChild(this.clip);
+  }
+}
+
+/** Class for receiving pipes from top */
+class TopPipeIn extends PipeBlock {
+  constructor(id = PipeBlockCounter) {
+    super(id);
+    this.clip.setAttributeNS(null, "class", "pipeIn");
+
+    this.border = document.createElementNS(xmlns_, "path");
+    setAttributes(this.border, {
+      d: `M 0.5 ${pipeRadius_ + 0.5} A ${pipeRadius_ - 2} ${
+        pipeRadius_ - 2
+      } 0 1 1 ${pipeRadius_ * 2 - 0.5} ${pipeRadius_ + 0.5}`,
+      stroke: "black",
+      "stroke-width": borderSize_,
+      fill: "transparent",
+    });
+
+    this.svg.appendChild(this.border);
+  }
+
+  addTo(block) {
+    if (block.topClipIn != null) {
+      console.log(
+        "cannot have a top pipe connector and top clip simultaneuosly!"
+      );
+    } else {
+      let x = margin_;
+
+      for (const pipe of block.topPipesIn) {
+        x += parseFloat(pipe.svg.getAttributeNS(null, "width"));
+        x += margin_;
+      }
+
+      setAttributes(this.svg, { x: x, y: -pipeRadius_ });
+
+      block.setSize(
+        x + parseFloat(this.svg.getAttributeNS(null, "width")) + margin_
+      );
+
+      block.shift(0, pipeRadius_);
+      block.topPipesIn.push(this);
+      this.parent = block;
+      pipesIn.set(this.id, this);
+      block.g.appendChild(this.svg);
+      block.leftClipOut = "disabled";
+    }
+  }
+
+  setPipes() {
+    const parentX = parseFloat(this.parent.svg.getAttributeNS(null, "x"));
+    const parentY = parseFloat(this.parent.svg.getAttributeNS(null, "y"));
+    const x =
+      parentX + parseFloat(this.svg.getAttributeNS(null, "x")) + pipeRadius_;
+    const y = parentY + pipeRadius_;
+
+    for (const pipe of this.pipes) {
+      setAttributes(pipe.line, { x2: x, y2: y });
+    }
+  }
+}
+
+/** Class for sending pipes out from bottom */
+class BotPipeOut extends PipeBlock {
+  constructor(id = PipeBlockCounter) {
+    super(id);
+    this.clip.setAttributeNS(null, "class", "pipeOut");
+
+    this.border = document.createElementNS(xmlns_, "path");
+    setAttributes(this.border, {
+      d: `M 0.5 ${pipeRadius_ - 0.5} A ${pipeRadius_ - 2} ${
+        pipeRadius_ - 2
+      } 0 1 0 ${pipeRadius_ * 2 - 0.5} ${pipeRadius_ - 0.5}`,
+      stroke: "black",
+      "stroke-width": borderSize_,
+      fill: "transparent",
+    });
+
+    this.svg.appendChild(this.border);
+  }
+
+  addTo(block) {
+    if (block.topClipOut != null) {
+      console.log(
+        "cannot have a bot pipe connector and bot clip simultaneuosly!"
+      );
+    } else {
+      const x = margin_;
+
+      setAttributes(this.svg, { x: x, y: blockStartHeight_ / 2 - pipeRadius_ });
+      block.setSize(
+        x + parseFloat(this.svg.getAttributeNS(null, "width")) + margin_
+      );
+
+      block.g.appendChild(this.svg);
+      block.botClipOut = "disabled";
+      block.leftClipOut = "disabled";
+
+      this.parent = block;
+      this.parent.botPipeOut = this;
+      pipesOut.set(this.id, this);
+    }
+  }
+
+  setPipes() {
+    const parentX = parseFloat(this.parent.svg.getAttributeNS(null, "x"));
+    const parentY = parseFloat(this.parent.svg.getAttributeNS(null, "y"));
+    const x =
+      parentX + parseFloat(this.svg.getAttributeNS(null, "x")) + pipeRadius_;
+    const y =
+      parentY + parseFloat(this.parent.block.getAttributeNS(null, "height"));
+
+    for (const pipe of this.pipes) {
+      setAttributes(pipe.line, { x1: x, y1: y });
+    }
+  }
+}
+
+/** Class for receiving pipes from left */
+class LeftPipeIn extends PipeBlock {
+  constructor(id = PipeBlockCounter) {
+    super(id);
+    this.clip.setAttributeNS(null, "class", "pipeIn");
+
+    this.border = document.createElementNS(xmlns_, "path");
+    setAttributes(this.border, {
+      d: `M ${pipeRadius_ + 0.5} 0.5 A ${pipeRadius_ - 2} ${
+        pipeRadius_ - 2
+      } 0 1 0 ${pipeRadius_ + 0.5} ${pipeRadius_ * 2 - 0.5}`,
+      stroke: "black",
+      "stroke-width": borderSize_,
+      fill: "transparent",
+    });
+
+    this.svg.appendChild(this.border);
+  }
+
+  addTo(block) {
+    if (block.leftClipOut != null && block.leftClipOut !== "disabled") {
+      console.log(
+        "cannot have a left pipe connector and left clip simultaneuosly!"
+      );
+    } else {
+      let y = margin_;
+
+      for (const pipe of block.leftPipesIn) {
+        y += parseFloat(pipe.svg.getAttributeNS(null, "height"));
+        y += margin_;
+      }
+
+      block.shift(pipeRadius_, 0);
+
+      setAttributes(this.svg, { x: -pipeRadius_, y: y });
+
+      block.setSize(
+        parseFloat(block.block.getAttributeNS(null, "width")),
+        y + parseFloat(this.svg.getAttributeNS(null, "width")) + margin_
+      );
+
+      block.g.appendChild(this.svg);
+      block.leftClipOut = "disabled";
+      block.botClipOut = "disabled";
+      block.topClipIn = "disabled";
+
+      block.leftPipesIn.push(this);
+      this.parent = block;
+      pipesIn.set(this.id, this);
+    }
+  }
+
+  setPipes() {
+    const parentX = parseFloat(this.parent.svg.getAttributeNS(null, "x"));
+    const parentY = parseFloat(this.parent.svg.getAttributeNS(null, "y"));
+    const x = parentX + pipeRadius_;
+    const y =
+      parentY + parseFloat(this.svg.getAttributeNS(null, "y")) + pipeRadius_;
+
+    for (const pipe of this.pipes) {
+      setAttributes(pipe.line, { x2: x, y2: y });
+    }
+  }
+}
+
+/** Class for sending pipes out from right */
+class RightPipeOut extends PipeBlock {
+  constructor(id = PipeBlockCounter) {
+    super(id);
+    this.clip.setAttributeNS(null, "class", "pipeOut");
+
+    this.border = document.createElementNS(xmlns_, "path");
+    setAttributes(this.border, {
+      d: `M ${pipeRadius_ - 0.5} 0.5 A ${pipeRadius_ - 2} ${
+        pipeRadius_ - 2
+      } 0 1 1 ${pipeRadius_ - 0.5} ${pipeRadius_ * 2 - 0.5}`,
+      stroke: "black",
+      "stroke-width": borderSize_,
+      fill: "transparent",
+    });
+
+    this.svg.appendChild(this.border);
+  }
+
+  addTo(block) {
+    if (
+      block.rightClipIn != null &&
+      block.rightClipIn !== "disabled" &&
+      block.rightPipeOut != null
+    ) {
+      console.log(
+        "cannot have a right pipe connector and right clip simultaneuosly!"
+      );
+    } else {
+      const y = margin_;
+
+      setAttributes(this.svg, { x: blockStartWidth_ / 2 - pipeRadius_, y: y });
+      block.setSize(
+        parseFloat(block.block.getAttributeNS(null, "width")),
+        y + parseFloat(this.svg.getAttributeNS(null, "height")) + margin_
+      );
+
+      block.g.appendChild(this.svg);
+
+      this.parent = block;
+      this.parent.rightPipeOut = this;
+      pipesOut.set(this.id, this);
+    }
+  }
+
+  setPipes() {
+    const parentX = parseFloat(this.parent.svg.getAttributeNS(null, "x"));
+    const parentY = parseFloat(this.parent.svg.getAttributeNS(null, "y"));
+    const x =
+      parentX + parseFloat(this.svg.getAttributeNS(null, "x")) + pipeRadius_;
+    const y =
+      parentY + parseFloat(this.svg.getAttributeNS(null, "y")) + pipeRadius_;
+
+    for (const pipe of this.pipes) {
+      setAttributes(pipe.line, { x1: x, y1: y });
+    }
+  }
 }
 
 /** Class from which all Clips inherit. Clips are added to Blocks and allow them to physically attach to each other. */
@@ -402,15 +751,9 @@ class TopClipIn extends Clip {
   constructor() {
     super();
 
-    this.svg = document.createElementNS(xmlns_, "svg");
-    setAttributes(this.svg, {
-      x: 0,
-      y: 0,
-      width: TBClipSize_,
-      height: TBClipSize_,
-      viewBox: `0 0 ${TBClipSize_} ${TBClipSize_}`,
-      transform: "translate(25 0) rotate(-45)",
-    });
+    // changed from <svg> -> <g> as Chrome bug found where <svg> transform properties were not applied to child nodes
+    this.svg = document.createElementNS(xmlns_, "g");
+    this.svg.setAttributeNS(null, "transform", "translate(25 0) rotate(-45)");
 
     this.clip = document.createElementNS(xmlns_, "rect");
     setAttributes(this.clip, {
@@ -436,19 +779,19 @@ class TopClipIn extends Clip {
 
   /**
    * This adds the clip to a {@link Block|Block}. Each block may only have 1 of each clip and cannot have a Left clip and a Top/Down Clip.
-   * @param {Block} obj - The Block to add the clip to.
+   * @param {Block} block - The Block to add the clip to.
    */
-  addTo(obj) {
-    if (obj.topClipIn != null) {
+  addTo(block) {
+    if (block.topClipIn != null) {
       console.log("clip already added or is disabled!");
     } else {
-      obj.topClipIn = this;
-      this.parent = obj;
+      block.topClipIn = this;
+      this.parent = block;
       topClipsIn.push(this);
-      obj.g.appendChild(obj.topClipIn.svg);
-      obj.topClipMask = topClipMask.cloneNode();
-      obj.mask.appendChild(obj.topClipMask);
-      obj.leftClipOut = "disabled";
+      block.g.appendChild(block.topClipIn.svg);
+      block.topClipMask = topClipMask.cloneNode();
+      block.mask.appendChild(block.topClipMask);
+      block.leftClipOut = "disabled";
     }
   }
 }
@@ -458,14 +801,9 @@ class BotClipOut extends Clip {
   constructor() {
     super();
 
-    this.svg = document.createElementNS(xmlns_, "svg");
-    setAttributes(this.svg, {
-      x: 0,
-      y: 0,
-      width: TBClipSize_,
-      height: TBClipSize_,
-      viewBox: `0 0 ${TBClipSize_} ${TBClipSize_}`,
-    });
+    // changed from <svg> -> <g> as Chrome bug found where <svg> transform properties were not applied to child nodes
+    this.svg = document.createElementNS(xmlns_, "g");
+    this.svg.setAttributeNS(null, "transform", "translate(25 0) rotate(-45)");
 
     this.clip = document.createElementNS(xmlns_, "rect");
     setAttributes(this.clip, {
@@ -490,17 +828,17 @@ class BotClipOut extends Clip {
 
   /**
    * This adds the clip to a {@link Block|Block}. Each block may only have 1 of each clip and cannot have a Left clip and a Top/Down Clip.
-   * @param {Block} obj - The Block to add the clip to.
+   * @param {Block} block - The Block to add the clip to.
    */
-  addTo(obj) {
-    if (obj.botClipOut != null) {
+  addTo(block) {
+    if (block.botClipOut != null) {
       console.log("clip already added or is disabled!");
     } else {
-      obj.botClipOut = this;
-      this.parent = obj;
+      block.botClipOut = this;
+      this.parent = block;
       botClipsOut.push(this);
-      obj.g.appendChild(obj.botClipOut.svg);
-      obj.leftClipOut = "disabled";
+      block.g.appendChild(block.botClipOut.svg);
+      block.leftClipOut = "disabled";
     }
   }
 }
@@ -509,14 +847,15 @@ class BotClipOut extends Clip {
 class LeftClipOut extends Clip {
   constructor() {
     super();
+
     this.svg = document.createElementNS(xmlns_, "svg");
     setAttributes(this.svg, {
       x: 0,
       y: 0,
-      width: LRClipSize_ * 2 + borderSize_,
-      height: LRClipSize_ * 2 + borderSize_,
-      viewBox: `0 0 ${LRClipSize_ * 2 + borderSize_} ${
-        LRClipSize_ * 2 + borderSize_
+      width: LRClipRadius_ * 2 + borderSize_,
+      height: LRClipRadius_ * 2 + borderSize_,
+      viewBox: `0 0 ${LRClipRadius_ * 2 + borderSize_} ${
+        LRClipRadius_ * 2 + borderSize_
       }`,
     });
 
@@ -524,7 +863,7 @@ class LeftClipOut extends Clip {
     setAttributes(this.clip, {
       cx: 9,
       cy: 9,
-      r: LRClipSize_,
+      r: LRClipRadius_,
       fill: blockColor_,
     });
 
@@ -542,32 +881,26 @@ class LeftClipOut extends Clip {
 
   /**
    * This adds the clip to a {@link Block|Block}. Each block may only have 1 of each clip and cannot have a Left clip and a Top/Down Clip.
-   * @param {Block} obj - The Block to add the clip to.
+   * @param {Block} block - The Block to add the clip to.
    */
-  addTo(obj) {
-    if (obj.leftClipOut != null) {
+  addTo(block) {
+    if (block.leftClipOut != null && block.leftClipOut !== "disabled") {
       console.log("clip already added or is disabled!");
     } else {
-      obj.leftClipOut = this;
-      this.parent = obj;
+      block.leftClipOut = this;
+      this.parent = block;
       leftClipsOut.push(this);
       this.svg.setAttributeNS(null, "x", -LRClipWidth_);
       this.clip.setAttributeNS(
         null,
         "fill",
-        obj.block.getAttributeNS(null, "fill")
+        block.block.getAttributeNS(null, "fill")
       );
-      obj.g.setAttributeNS(null, "transform", `translate(${LRClipWidth_} 0)`);
-      const newWidth =
-        parseFloat(obj.svg.getAttributeNS(null, "width")) + LRClipWidth_;
-      const newBox = `0 0 ${newWidth} ${obj.svg.getAttributeNS(
-        null,
-        "height"
-      )}`;
-      setAttributes(obj.svg, { width: newWidth, viewBox: newBox });
-      obj.g.appendChild(obj.leftClipOut.svg);
-      obj.topClipIn = "disabled";
-      obj.botClipOut = "disabled";
+
+      block.shift(LRClipWidth_, 0);
+      block.g.appendChild(block.leftClipOut.svg);
+      block.topClipIn = "disabled";
+      block.botClipOut = "disabled";
     }
   }
 }
@@ -581,10 +914,10 @@ class RightClipIn extends Clip {
     setAttributes(this.svg, {
       x: 0,
       y: 0,
-      width: LRClipSize_ * 2 + borderSize_,
-      height: LRClipSize_ * 2 + borderSize_,
-      viewBox: `0 0 ${LRClipSize_ * 2 + borderSize_} ${
-        LRClipSize_ * 2 + borderSize_
+      width: LRClipRadius_ * 2 + borderSize_,
+      height: LRClipRadius_ * 2 + borderSize_,
+      viewBox: `0 0 ${LRClipRadius_ * 2 + borderSize_} ${
+        LRClipRadius_ * 2 + borderSize_
       }`,
     });
 
@@ -592,7 +925,7 @@ class RightClipIn extends Clip {
     setAttributes(this.clip, {
       cx: 9,
       cy: 9,
-      r: LRClipSize_,
+      r: LRClipRadius_,
       fill: "f",
       opacity: "0%",
     });
@@ -611,18 +944,18 @@ class RightClipIn extends Clip {
 
   /**
    * This adds the clip to a {@link Block|Block}. Each block may only have 1 of each clip and cannot have a Left clip and a Top/Down Clip.
-   * @param {Block} obj - The Block to add the clip to.
+   * @param {Block} block - The Block to add the clip to.
    */
-  addTo(obj) {
-    if (obj.rightClipIn != null) {
+  addTo(block) {
+    if (block.rightClipIn != null) {
       console.log("clip already added or is disabled!");
     } else {
-      obj.rightClipIn = this;
-      this.parent = obj;
-      rightClipsIn.push(obj.rightClipIn);
-      obj.g.appendChild(obj.rightClipIn.svg);
-      obj.rightClipMask = rightClipMask.cloneNode();
-      obj.mask.appendChild(obj.rightClipMask);
+      block.rightClipIn = this;
+      this.parent = block;
+      rightClipsIn.push(block.rightClipIn);
+      block.g.appendChild(block.rightClipIn.svg);
+      block.rightClipMask = rightClipMask.cloneNode();
+      block.mask.appendChild(block.rightClipMask);
     }
   }
 }
@@ -684,7 +1017,7 @@ class Slot {
     rightClipsIn.push(this.rightClipIn);
     setAttributes(this.rightClipIn.svg, {
       x: 0,
-      y: slotStartHeight_ / 2 - LRClipSize_,
+      y: slotStartHeight_ / 2 - LRClipRadius_,
     });
     this.rightClipIn.clip.setAttributeNS(null, "fill", "#fff");
 
@@ -744,12 +1077,16 @@ class Slot {
     const height = parseFloat(this.block.getAttributeNS(null, "height"));
 
     if (height < blockStartHeight_)
-      this.rightClipIn.svg.setAttributeNS(null, "y", height / 2 - LRClipSize_);
+      this.rightClipIn.svg.setAttributeNS(
+        null,
+        "y",
+        height / 2 - LRClipRadius_
+      );
     else
       this.rightClipIn.svg.setAttributeNS(
         null,
         "y",
-        blockStartHeight_ / 2 - LRClipSize_
+        blockStartHeight_ / 2 - LRClipRadius_
       );
   }
 
@@ -965,7 +1302,30 @@ function checkAllCollision(block) {
   }
 }
 
-/** This function attaches four event listeners which are attached to the {@link container_|container}:
+function checkPipeCollision(x, y) {
+  let pipe = false;
+  // console.log(`mouse: x=${x} y=${y}`);
+
+  pipesIn.forEach((value, key) => {
+    const cBox = value.svg.getBoundingClientRect();
+    const rangeX = cBox.width;
+    const rangeY = cBox.height;
+    // console.log(`${key}: x=${cBox.x} y=${cBox.y}`);
+
+    if (
+      cBox.x > x - rangeX &&
+      cBox.x < x + rangeX &&
+      cBox.y > y - rangeY &&
+      cBox.y < y + rangeY
+    ) {
+      pipe = pipesIn.get(key);
+    }
+  });
+
+  return pipe;
+}
+
+/** This function attaches event listeners which are attached to the {@link container_|container}:
  * -mousedown
  * -mousemove
  * -mouseup
@@ -988,12 +1348,22 @@ function eventManager(svg) {
   let selectedObj = null;
   let offset = 0;
 
+  let pipe = null;
+
   /**
    * This function handles the mousedown event which starts a drag.
    * @param {Event} evt - A mousedown event.
    */
   function startDrag(evt) {
-    if (evt.target.classList.contains("draggable")) {
+    if (evt.target.classList.contains("pipeOut")) {
+      selectedElement = evt.target.parentNode;
+      selectedObj = pipesOut.get(selectedElement.id);
+
+      pipe = new Pipe();
+      selectedObj.pipes.push(pipe);
+      selectedObj.setPipes();
+      container_.insertBefore(pipe.line, container_.firstChild);
+    } else if (evt.target.classList.contains("draggable")) {
       selectedElement = evt.target.parentNode.parentNode;
       selectedObj = objects.get(selectedElement.id);
       offset = getMousePosition(evt);
@@ -1031,14 +1401,21 @@ function eventManager(svg) {
    * @param {Event} evt - A mousemove event.
    */
   function drag(evt) {
+    evt.preventDefault();
+    const coord = getMousePosition(evt);
     if (selectedElement) {
-      evt.preventDefault();
-      const coord = getMousePosition(evt);
-      setAttributes(selectedElement, {
-        x: coord.x - offset.x,
-        y: coord.y - offset.y,
-      });
-      setConnected(selectedObj);
+      if (selectedObj instanceof PipeBlock) {
+        setAttributes(pipe.line, {
+          x2: coord.x,
+          y2: coord.y,
+        });
+      } else {
+        setAttributes(selectedElement, {
+          x: coord.x - offset.x,
+          y: coord.y - offset.y,
+        });
+        setConnected(selectedObj);
+      }
     }
   }
 
@@ -1048,9 +1425,24 @@ function eventManager(svg) {
    */
   function endDrag(evt) {
     if (selectedElement) {
-      checkAllCollision(selectedObj);
-      runChain(selectedObj);
-      selectedElement = null;
+      if (selectedObj instanceof PipeBlock) {
+        // const coord = getMousePosition(evt);
+        const pipeIn = checkPipeCollision(evt.clientX, evt.clientY);
+        if (pipeIn) {
+          pipeIn.pipes.push(pipe);
+          pipeIn.setPipes();
+          pipe.in = selectedObj;
+          pipe.out = pipeIn;
+        } else {
+          selectedObj.pipes.pop();
+          pipe.remove();
+        }
+        selectedElement = null;
+      } else {
+        checkAllCollision(selectedObj);
+        runChain(selectedObj);
+        selectedElement = null;
+      }
     }
   }
 
@@ -1186,12 +1578,13 @@ function resolveTBCollision(top, bot) {
       bot.svg.setAttributeNS(null, "x", top.svg.getAttributeNS(null, "x"));
     }
 
-    bot.svg.setAttributeNS(
-      null,
-      "y",
+    let topHeight =
       parseFloat(top.svg.getAttributeNS(null, "y")) +
-        parseFloat(top.block.getAttributeNS(null, "height"))
-    );
+      parseFloat(top.block.getAttributeNS(null, "height"));
+    if (top.topPipesIn.length !== 0 && top.topPipesIn.length !== "disabled")
+      topHeight += pipeRadius_;
+
+    bot.svg.setAttributeNS(null, "y", topHeight);
 
     setConnected(bot);
 
@@ -1205,10 +1598,7 @@ function resolveTBCollision(top, bot) {
  * @param {Block} block - The origin block.
  */
 function runChain(block) {
-  let left = block;
-  while (left.left != null) left = left.left;
-  while (left.up != null) left = left.up;
-  left.run();
+  // purposely empty as logic not implemented currently
 }
 
 /**
@@ -1217,17 +1607,26 @@ function runChain(block) {
  */
 function setConnected(block) {
   if (block != null) {
+    block.setPipes();
     let down = block.down;
     let right = block.right;
 
     while (down != null) {
+      let topHeight =
+        parseFloat(down.up.svg.getAttributeNS(null, "y")) +
+        parseFloat(down.up.block.getAttributeNS(null, "height"));
+      if (
+        down.up.topPipesIn.length !== 0 &&
+        down.up.topPipesIn.length !== "disabled"
+      )
+        topHeight += pipeRadius_;
+
       setAttributes(down.svg, {
         x: parseFloat(down.up.svg.getAttributeNS(null, "x")),
-        y:
-          parseFloat(down.up.svg.getAttributeNS(null, "y")) +
-          parseFloat(down.up.block.getAttributeNS(null, "height")),
+        y: topHeight,
       });
       if (down.right != null) setConnected(down);
+      down.setPipes();
       down = down.down;
     }
 
@@ -1239,88 +1638,140 @@ function setConnected(block) {
           LRClipWidth_,
         y: parseFloat(right.left.svg.getAttributeNS(null, "y")),
       });
+      right.setPipes();
       right = right.right;
     }
   }
 }
 
 /* ********************************************************************* */
-/* Buttons for testing code */
+/* Built in Blocks */
 /* ********************************************************************* */
 
-function createBlock() {
-  objects.set(`block${counter}`, new Block(`block${counter}`));
-  document
-    .getElementById("container")
-    .appendChild(objects.get(`block${counter}`).svg);
-  counter++;
+function createBlockB1Slot(id = counter) {
+  const block = new Block(id);
+  block.add(new BotClipOut());
+  block.add(new Slot());
+
+  return block;
 }
 
-function createInsert() {
-  const newInsert = new Block(`insert${insertCounter}`);
-  objects.set(`insert${insertCounter}`, newInsert);
-  newInsert.add(new LeftClipOut());
-  newInsert.color(insertColor_);
-  document
-    .getElementById("container")
-    .appendChild(objects.get(`insert${insertCounter}`).svg);
-  insertCounter++;
+function createBlockLR1Slot(id = counter) {
+  const block = new Block(id);
+  block.add(new Slot());
+  block.add(new LeftClipOut());
+  block.add(new RightClipIn());
+
+  return block;
 }
 
-function addSlot() {
-  const last = Array.from(objects.values()).pop();
-  last.add(new Slot());
+function createBlockTB2Slot1Op(id = counter) {
+  const block = new Block(id);
+  block.add(new Slot());
+  block.add(new Operator());
+  block.add(new Slot());
+  block.add(new TopClipIn());
+  block.add(new BotClipOut());
+
+  return block;
 }
 
-function addOperator() {
-  const last = Array.from(objects.values()).pop();
-  last.add(new Operator());
+function createBlockLR3Slot2Op(id = counter) {
+  const block = new Block(id);
+  block.add(new Slot());
+  block.add(new Operator());
+  block.add(new Slot());
+  block.add(new Operator());
+  block.add(new Slot());
+  block.add(new LeftClipOut());
+  block.add(new RightClipIn());
+
+  return block;
 }
 
-function addTopClip() {
-  const last = Array.from(objects.values()).pop();
-  last.add(new TopClipIn());
+function createTopPipe(id = counter, numPipes = 2) {
+  const block = new Block(id);
+  block.setSize(blockStartWidth_, blockStartHeight_ / 2);
+  block.add(new BotClipOut());
+
+  for (let i = 0; i < Math.abs(numPipes); i++) {
+    block.add(new TopPipeIn());
+  }
+
+  return block;
 }
 
-function addBotClip() {
-  const last = Array.from(objects.values()).pop();
-  last.add(new BotClipOut());
+function createBotPipe(id = counter) {
+  const block = new Block(id);
+  block.setSize(blockStartWidth_, blockStartHeight_ / 2);
+  block.add(new TopClipIn());
+  block.add(new BotPipeOut());
+
+  return block;
 }
 
-function addLeftClip() {
-  const last = Array.from(objects.values()).pop();
-  last.add(new LeftClipOut());
+function createLeftPipe(id = counter, numPipes = 2) {
+  const block = new Block(id);
+
+  block.setSize(blockStartWidth_ / 2, blockStartHeight_);
+  block.add(new RightClipIn());
+
+  for (let i = 0; i < Math.abs(numPipes); i++) {
+    block.add(new LeftPipeIn());
+  }
+
+  return block;
 }
 
-function addRightClip() {
-  const last = Array.from(objects.values()).pop();
-  last.add(new RightClipIn());
-}
+function createRightPipe(id = counter) {
+  const block = new Block(id);
 
-function logBlock() {
-  // var last = Array.from(objects.values()).pop();
-  console.log(Array.from(objects.values()));
-}
+  block.setSize(blockStartWidth_ / 2, blockStartHeight_);
+  block.add(new LeftClipOut());
+  block.add(new RightPipeOut());
 
-window.document.getElementById("createBlock").onclick = createBlock;
-window.document.getElementById("createInsert").onclick = createInsert;
-window.document.getElementById("addSlot").onclick = addSlot;
-window.document.getElementById("addOperator").onclick = addOperator;
-window.document.getElementById("addTopClip").onclick = addTopClip;
-window.document.getElementById("addBotClip").onclick = addBotClip;
-window.document.getElementById("addLeftClip").onclick = addLeftClip;
-window.document.getElementById("addRightClip").onclick = addRightClip;
-window.document.getElementById("logBlock").onclick = logBlock;
+  return block;
+}
 
 /**
  * This function appends the {@link container_|container} to a <div> element.
- * @param {*} divId - The div element.
+ * @param {HTMLElement} divId - The div element.
  */
 function setWorkArea(divId) {
   const workArea = document.getElementById(divId);
   workArea.appendChild(container_);
 }
 
+function setPalleteArea(divId) {
+  const palleteArea = document.getElementById(divId);
+  palleteArea.appendChild(pallete_);
+}
+
+function addBlockToContainer(block) {
+  const newBlock = block(`block${counter}`);
+  objects.set(`block${counter}`, newBlock);
+  container_.appendChild(newBlock.svg);
+  counter++;
+}
+
+function addBlockToPallete(block) {
+  pallete_
+    .appendChild(block(`p${palleteCounter}`).svg)
+    .addEventListener("click", () => {
+      addBlockToContainer(block);
+    });
+  palleteCounter++;
+}
+
 window.onload = function () {
   setWorkArea("workArea");
+  setPalleteArea("sidebar");
+  addBlockToPallete(createBlockB1Slot);
+  addBlockToPallete(createBlockLR1Slot);
+  addBlockToPallete(createBlockLR3Slot2Op);
+  addBlockToPallete(createBlockTB2Slot1Op);
+  addBlockToPallete(createTopPipe);
+  addBlockToPallete(createBotPipe);
+  addBlockToPallete(createLeftPipe);
+  addBlockToPallete(createRightPipe);
 };
